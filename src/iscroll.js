@@ -59,7 +59,12 @@ var m = Math,
 
 		that.wrapper = typeof el == 'object' ? el : doc.getElementById(el);
 		that.wrapper.style.overflow = 'hidden';
-		that.scroller = that.wrapper.children[0];
+	    for ( var j = 0; j < that.wrapper.childNodes.length ; j++) {
+		if (that.wrapper.childNodes[j].nodeType == 1) {
+		    that.scroller = that.wrapper.childNodes[j];
+		    break;
+		}
+	    }
 
 		// Default options
 		that.options = {
@@ -260,7 +265,6 @@ iScroll.prototype = {
 	
 	_pos: function (x, y) {
 		if (this.zoomed) return;
-
 		x = this.hScroll ? x : 0;
 		y = this.vScroll ? y : 0;
 
@@ -383,6 +387,7 @@ iScroll.prototype = {
 	},
 	
 	_move: function (e) {
+	
 		var that = this,
 			point = hasTouch ? e.touches[0] : e,
 			deltaX = point.pageX - that.pointX,
@@ -391,7 +396,6 @@ iScroll.prototype = {
 			newY = that.y + deltaY,
 			c1, c2, scale,
 			timestamp = e.timeStamp || Date.now();
-
 		if (that.options.onBeforeScrollMove) that.options.onBeforeScrollMove.call(that, e);
 
 		// Zoom
@@ -420,7 +424,6 @@ iScroll.prototype = {
 
 		that.pointX = point.pageX;
 		that.pointY = point.pageY;
-
 		// Slow down if outside of the boundaries
 		if (newX > 0 || newX < that.maxScrollX) {
 			newX = that.options.bounce ? that.x + (deltaX / 2) : newX >= 0 || that.maxScrollX >= 0 ? 0 : that.maxScrollX;
@@ -433,7 +436,6 @@ iScroll.prototype = {
 		that.distY += deltaY;
 		that.absDistX = m.abs(that.distX);
 		that.absDistY = m.abs(that.distY);
-
 		if (that.absDistX < 6 && that.absDistY < 6) {
 			return;
 		}
@@ -788,12 +790,17 @@ iScroll.prototype = {
 	},
 
 	_offset: function (el) {
-		var left = -el.offsetLeft,
-			top = -el.offsetTop;
-			
-		while (el = el.offsetParent) {
+            var left, top;
+  	        if (el.getBBox) {
+		    left = - el.getBBox().x;
+		    top =  - el.getBBox().y;
+	        } else {
+		    left = -el.offsetLeft,
+		    top = -el.offsetTop;
+		    while (el = el.offsetParent) {
 			left -= el.offsetLeft;
 			top -= el.offsetTop;
+		    }
 		}
 		
 		if (el != this.wrapper) {
@@ -897,13 +904,28 @@ iScroll.prototype = {
 			page = 0;
 
 		if (that.scale < that.options.zoomMin) that.scale = that.options.zoomMin;
-		that.wrapperW = that.wrapper.clientWidth || 1;
-		that.wrapperH = that.wrapper.clientHeight || 1;
-
+   	        // Case where wrapper is SVG
+ 	        if (that.wrapper.getBBox) {
+		    var bbox = that.wrapper.getBBox();
+		    that.wrapperW = bbox.width / that.scale;
+		    that.wrapperH = bbox.height / that.scale;
+	        } else {
+  		    that.wrapperW = that.wrapper.clientWidth || 1;
+		    that.wrapperH = that.wrapper.clientHeight || 1;
+	        }
 		that.minScrollY = -that.options.topOffset || 0;
-		that.scrollerW = mround(that.scroller.offsetWidth * that.scale);
-		that.scrollerH = mround((that.scroller.offsetHeight + that.minScrollY) * that.scale);
-		that.maxScrollX = that.wrapperW - that.scrollerW;
+
+  	        // Case where scroller is SVG
+	        if (that.scroller.getBBox) {
+		    var scrollerBbox = that.scroller.getBBox();
+		    // @@@ specific to case where svg is wider than high
+		    that.scrollerW = that.scroller.width.baseVal.value * that.scale ;
+		    that.scrollerH = that.wrapperH * that.scale;
+	        } else {
+		    that.scrollerW = mround(that.scroller.offsetWidth * that.scale);
+		    that.scrollerH = mround((that.scroller.offsetHeight + that.minScrollY) * that.scale);
+	        }
+	        that.maxScrollX = that.wrapperW - that.scrollerW;
 		that.maxScrollY = that.wrapperH - that.scrollerH + that.minScrollY;
 		that.dirX = 0;
 		that.dirY = 0;
